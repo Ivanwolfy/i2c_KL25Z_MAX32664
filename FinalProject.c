@@ -1,9 +1,20 @@
-/*  Standard C Included Files */
+//Project Name:
+//Date: 2020-04-07
+//Author: Ivan Cortes
+//Class: ECE5721
+//University: Oakland University
+//University Address: 318 Meadow Brook Rd, Rochester, MI 48309
+//Project Objective:
+//The objective is to be able to monitor heart rate and blood oxygen saturation (SpO2).
+// this will be done using FRDM-KL25Z, LCD 16x2 and a Pulse Oximeter and Heart Rate Sensor - MAX30101 & MAX32664 (Qwiic)
+//protocols used:
+//		I2C: Communication between Sensor and KL25Z
+//		UART: Communication between LCD 16x2 and KL25Z
+//
+/*  Includes */
 #include <string.h>
-/*  SDK Included Files */
 #include "board.h"
 #include "fsl_debug_console.h"
-//#include "fsl_i2c.c"
 #include "fsl_i2c.h"
 #include "pin_mux.h"
 #include <MKL25Z4.h>
@@ -12,14 +23,11 @@
 /*******************************************************************************
 /*******************************************************************************
  * Definitions*/
+//UART
 #define UART_OVERSAMPLE_RATE (16)
 #define SYS_CLOCK (48e6)
-
 #define MASK(x)  (1UL << (x))
-// RST PIN
-#define RSTN_PIN (8) 		// Define on Port C
-// MFIO PIN
-#define MFIO_PIN (9)       	// Define on Port C
+//I2C
 #define I2C_M_START I2C1->C1 |= I2C_C1_MST_MASK
 #define I2C_M_STOP I2C1->C1 &= ~I2C_C1_MST_MASK
 #define I2C_M_RSTART I2C1->C1 |= I2C_C1_RSTA_MASK
@@ -31,21 +39,22 @@
 					I2C1->S |= I2C_S_IICIF_MASK
 #define NACK I2C1->C1 |= I2C_C1_TXAK_MASK
 #define ACK I2C1->C1 &= ~I2C_C1_TXAK_MASK
-////////////////////////////////////////////////////////////////////////////////
 // MAX3010 PULSE OXIMETER AND HARTH RATE SENSOR
 // MAX30101EFD
 // MAX32644 BIOMETRIC HUB
 // MAX32664GWEA
 //I2C WRITE ADDRESS
 #define I2C_MAX32664_SLAVE_ADDRESS (0xAA)
-//Arrays
+#define RSTN_PIN (8) 								// Define on Port C
+#define MFIO_PIN (9)       							// Define on Port C
+/*******************************************************************************
+/*******************************************************************************
+ * Arrays*/
 uint8_t data[256];
-
-
-////////////////////////////////////////////////////////////////////////////////
- //CODE
-
-//UART
+/*******************************************************************************
+/*******************************************************************************
+ * Code*/
+//UART Initialization
 void Init_UART0(uint32_t baud_rate) {
 	uint16_t sbr;
 	//enable clock gating for UART0 and PortA
@@ -78,13 +87,13 @@ void Init_UART0(uint32_t baud_rate) {
 	//Enable UART transmitter and receiver
 	UART0->C2 |= UART0_C2_TE(1) | UART0_C2_RE(1);
 }
-
+//UART Transmit data
 void UART0_Transmit_Poll(uint8_t data){
 	while (!(UART0->S1 & UART0_S1_TDRE_MASK))
 		;
 	UART0->D = data;
 }
-
+//UART Receive data
 uint8_t UART0_Receive_Poll(void) {
 	while (!(UART0->S1 & UART0_S1_RDRF_MASK))
 		;
@@ -222,15 +231,10 @@ uint8_t i2c_read_bytes(uint8_t slaveAddress, uint8_t familyByte, uint8_t indexBy
 	I2C_WAIT;								/*wait for completion*/
 	I2C_M_STOP;								/*send stop*/
 }
-
-
 //Main Function Code
 int main(void){
-	//uint8_t intPinValue = 0x25;
 	BOARD_InitPins();
     BOARD_BootClockRUN();
-    //BOARD_InitDebugConsole();
-
 	Init_UART0(9600);
 	UART0_Transmit_Poll(0x7C);
 	UART0_Transmit_Poll(0x80);  //backlight Off
@@ -240,14 +244,7 @@ int main(void){
 	UART0_Transmit_Poll(0x7C);
 	UART0_Transmit_Poll(0x9D);  //backlight ON
 	delay(1000);
-	//int i = 1983;
-	//uint8_t  data001[20];
-	//sprintf(data001, "%d", i);
 	char str_ivan[32]= "Display         Initialized";
-
-	//uint8_t  data001[20];
-	//sprintf(data001, "%c", i);
-
 	UART0_Transmit_Poll(str_ivan[0]);
 	UART0_Transmit_Poll(str_ivan[1]);
 	UART0_Transmit_Poll(str_ivan[2]);
@@ -284,10 +281,10 @@ int main(void){
 	uint8_t extraByte = 0x00;
 	i2c_read_bytes(I2C_MAX32664_SLAVE_ADDRESS,DEVICE_MODE,indexByte,extraByte,data,2);
 	PRINTF("Status Byte: 0x%x\r\n", data[0]);
-	if(data[0] == 0x00){
-			    PRINTF("No error\r\n");
-			 }else {
-			    	PRINTF("Error\r\n");
+		if(data[0] == 0x00){
+	PRINTF("No error\r\n");
+		}else {
+			   PRINTF("Error\r\n");
 			  }
 	PRINTF("Response: 0x%x\r\n", data[1]);
 	    if (data[1] == 0x00){
@@ -296,24 +293,21 @@ int main(void){
 	    		PRINTF("Device is in bootloader operating mode");
 	    }
 	PRINTF("\r\n\r\n");
-//////
 	PRINTF("Read the hub sensor version\r\n");
 	i2c_read_bytes(I2C_MAX32664_SLAVE_ADDRESS,IDENTITY,0x03,0x00,data,4);
 	PRINTF("Status Byte: 0x%x\r\n", data[0]);
-	if(data[0] == 0x00){
-			    PRINTF("No error\r\n");
-			 }else {
-			    	PRINTF("Error\r\n");
-			  }
+		if(data[0] == 0x00){
+			PRINTF("No error\r\n");
+		}else {
+			    PRINTF("Error\r\n");
+		}
 	PRINTF("Response: 0x%x, 0x%x, 0x%x\r\n", data[1], data[2], data[3]);
 	    if ((data[1] == 0x0a) & (data[2] == 0x01) & (data[3] == 0x00)){
 		    PRINTF("Version is 10.1.0");
 		    }else{
-		    		PRINTF("Unknown version");
+		    	PRINTF("Unknown version");
 		    }
 		    PRINTF("\r\n\r\n");
-
- //////
 	PRINTF("Get the MAX30101 register attributes\r\n");
 	i2c_read_bytes(I2C_MAX32664_SLAVE_ADDRESS,GET_ATTRIBUTES_OF_THE_AFE,0x03,0x00,data,4);
 	PRINTF("Status Byte: 0x%x\r\n", data[0]);
@@ -321,235 +315,169 @@ int main(void){
 		    PRINTF("No error\r\n");
 		 }else {
 		    	PRINTF("Error\r\n");
-		  }
+		 }
 	PRINTF("Response: 0x%x, 0x%x\r\n",data[1], data[2]);
 	PRINTF("\r\n\r\n");
-//
-	/*PRINTF("Read all the MAX30101 registers\r\n");
-		//uint8_t data55[numBytes55];
-		uint8_t data55[255];
-		i2c_read_bytes(I2C_MAX32664_SLAVE_ADDRESS,DUMP_REGISTERS,0x03,0x00,data55,255);
-		PRINTF("Status Byte: 0x%x\r\n", data55[0]);
-		if(data55[0] == 0x00){
-				    PRINTF("No error\r\n");
-				 }else {
-				    	PRINTF("Error\r\n");
-				  }
-		PRINTF("0x%x, 0x%x, 0x%x, 0x%x\r\n", data55[0],data55[1],data55[2],data55[3]);
-		PRINTF("0x%x, 0x%x, 0x%x, 0x%x, 0x%x\r\n", data55[4],data55[5],data55[6],data55[7],data55[8]);
-		PRINTF("0x%x, 0x%x, 0x%x, 0x%x, 0x%x\r\n", data55[9],data55[10],data55[11],data55[12],data55[13]);
-		PRINTF("0x%x, 0x%x, 0x%x, 0x%x, 0x%x\r\n", data55[14],data55[15],data55[16],data55[17],data55[18]);
-		PRINTF("0x%x, 0x%x, 0x%x, 0x%x, 0x%x\r\n", data55[19],data55[20],data55[21],data55[22],data55[23]);
-		PRINTF("0x%x, 0x%x, 0x%x, 0x%x, 0x%x\r\n", data55[24],data55[25],data55[26],data55[27],data55[28]);*/
-	/*for (uint8_t i = 0; i < 255; i++)
-			    {
-			        if (i % 8 == 0)
-			        {
-			            PRINTF("\r\n");
-			        }
-			        PRINTF("0x%x  ", data55[i]);
-			    }*/
-		//PRINTF("value of register 7 is:0x%x", data55[13]);
-			    //PRINTF("\r\n\r\n");
-
-			    //
 	PRINTF("Read the MAX30101 register 7\r\n");
 	i2c_read_bytes(I2C_MAX32664_SLAVE_ADDRESS,READ_REGISTER,0x03,0x07,data,2);
 	PRINTF("Status Byte: 0x%x\r\n", data[0]);
-	if(data[0] == 0x00){
-		PRINTF("No error\r\n");
-	}else {
-		PRINTF("Error\r\n");
+		if(data[0] == 0x00){
+			PRINTF("No error\r\n");
+		}else {
+				PRINTF("Error\r\n");
 		}
 	PRINTF("Response: 0x%x, 0x%x\r\n",data[0], data[1]);
 	PRINTF("\r\n\r\n");
-
-	    PRINTF("Set output mode to sensor and algorithm data\r\n");
-	    uint8_t data2[] = {0x03};
-	    uint8_t ivan = 0x05;
-	    ivan = i2c_write_bytes(I2C_MAX32664_SLAVE_ADDRESS,SET_OUTPUT_MODE,0x00,data2, 1);
-	    PRINTF("Status Byte is: 0x%x\r\n", ivan);
-	    if(ivan == 0x00){
-	    		    PRINTF("No error\r\n");
-	    		 }else {
-	    		    	PRINTF("Error\r\n");
-	    		  }
-
-	    PRINTF("Set FIFO threshold to 0x0F. Increase or decrease this value if you want more or fewer samples per interrupt\r\n");
-	    uint8_t data3[] = {0x0F};
-	    ivan = 0x05;
-	    ivan = i2c_write_bytes(I2C_MAX32664_SLAVE_ADDRESS,SET_OUTPUT_MODE,0x01,data3, 1);
-	    PRINTF("Status Byte is: 0x%x\r\n", ivan);
-	    if(ivan == 0x00){
-	    	    		    PRINTF("No error\r\n");
-	    	    		 }else {
-	    	    		    	PRINTF("Error\r\n");
-	    	    		  }
-
-	    	    PRINTF("Enable AGC algorithm\r\n");
-	    	    	    	    uint8_t data4[] = {0x01};
-	    	    	    	    ivan = 0x05;
-	    	    	    	    ivan = i2c_write_bytes(I2C_MAX32664_SLAVE_ADDRESS,ALGORITHM_MODE_ENABLE,0x00,data4, 1);
-	    	    	    	    PRINTF("Status Byte is: 0x%x\r\n", ivan);
-	    	    	    	    if(ivan == 0x00){
-	    	    	    	    		    PRINTF("No error\r\n");
-	    	    	    	    		 }else {
-	    	    	    	    		    	PRINTF("Error\r\n");
-	    	    	    	    		  }
-	    	    	    	    PRINTF("Enable the MAX30101 sensor\r\n");
-	    	    	    	    	    	    	    	    uint8_t data5[] = {0x01};
-	    	    	    	    	    	    	    	   ivan = 0x05;
-	    	    	    	    	    	    	    	    ivan = i2c_write_bytes(I2C_MAX32664_SLAVE_ADDRESS,SENSOR_MODE_ENABLE,0x03,data5, 1);
-	    	    	    	    	    	    	    	    PRINTF("Status Byte is: 0x%x\r\n", ivan);
-	    	    	    	    	    	    	    	    if(ivan == 0x00){
-	    	    	    	    	    	    	    	    		    PRINTF("No error\r\n");
-	    	    	    	    	    	    	    	    		 }else {
-	    	    	    	    	    	    	    	    		    	PRINTF("Error\r\n");
-	    	    	    	    	    	    	    	    		  }
-
-
-		PRINTF("Enable MaximFast algorithm mode 1\r\n");
-	    uint8_t data6[] = {0x01};
-	    ivan = 0x05;
-		ivan = i2c_write_bytes(I2C_MAX32664_SLAVE_ADDRESS,ALGORITHM_MODE_ENABLE,0x02,data6, 1);
-		PRINTF("Status Byte is: 0x%x\r\n", ivan);
+	PRINTF("Set output mode to sensor and algorithm data\r\n");
+	uint8_t data2[] = {0x03};
+	uint8_t ivan = 0x05;
+	ivan = i2c_write_bytes(I2C_MAX32664_SLAVE_ADDRESS,SET_OUTPUT_MODE,0x00,data2, 1);
+	PRINTF("Status Byte is: 0x%x\r\n", ivan);
 		if(ivan == 0x00){
-			   PRINTF("No error\r\n");
+	    	PRINTF("No error\r\n");
+	    }else {
+	    		 PRINTF("Error\r\n");
+	    }
+	PRINTF("Set FIFO threshold to 0x0F. Increase or decrease this value if you want more or fewer samples per interrupt\r\n");
+	uint8_t data3[] = {0x0F};
+	ivan = 0x05;
+	ivan = i2c_write_bytes(I2C_MAX32664_SLAVE_ADDRESS,SET_OUTPUT_MODE,0x01,data3, 1);
+	PRINTF("Status Byte is: 0x%x\r\n", ivan);
+		if(ivan == 0x00){
+	    	PRINTF("No error\r\n");
+	    }else {
+	    	      PRINTF("Error\r\n");
+	    }
+	PRINTF("Enable AGC algorithm\r\n");
+	uint8_t data4[] = {0x01};
+	ivan = 0x05;
+	ivan = i2c_write_bytes(I2C_MAX32664_SLAVE_ADDRESS,ALGORITHM_MODE_ENABLE,0x00,data4, 1);
+	PRINTF("Status Byte is: 0x%x\r\n", ivan);
+		if(ivan == 0x00){
+			PRINTF("No error\r\n");
+	    }else {
+	    	      PRINTF("Error\r\n");
+	    }
+	PRINTF("Enable the MAX30101 sensor\r\n");
+	uint8_t data5[] = {0x01};
+	ivan = 0x05;
+	ivan = i2c_write_bytes(I2C_MAX32664_SLAVE_ADDRESS,SENSOR_MODE_ENABLE,0x03,data5, 1);
+	PRINTF("Status Byte is: 0x%x\r\n", ivan);
+	    if(ivan == 0x00){
+	    	PRINTF("No error\r\n");
+	    }else {
+	    	      PRINTF("Error\r\n");
+	    }
+	PRINTF("Enable MaximFast algorithm mode 1\r\n");
+	uint8_t data6[] = {0x01};
+	ivan = 0x05;
+	ivan = i2c_write_bytes(I2C_MAX32664_SLAVE_ADDRESS,ALGORITHM_MODE_ENABLE,0x02,data6, 1);
+	PRINTF("Status Byte is: 0x%x\r\n", ivan);
+		if(ivan == 0x00){
+			PRINTF("No error\r\n");
 		}else {
-		PRINTF("Error\r\n");
+				   PRINTF("Error\r\n");
 		}
-
-	    PRINTF("Read the sensor hub status\r\n");
-	    uint8_t data001[5];
-		i2c_read_bytes(I2C_MAX32664_SLAVE_ADDRESS,READ_SENSOR_HUB_STATUS,0x00,0x00,data001,3);
-		PRINTF("Status Byte: 0x%x\r\n", data001[0]);
-					    		if(data001[0] == 0x00){
-					    		    PRINTF("No error\r\n");
-					    		 }else {
-					    		    	PRINTF("Error\r\n");
-					    		  }
-					    	PRINTF("Response: 0x%x, 0x%x\r\n",data001[0], data001[1]);
-					    	PRINTF("\r\n\r\n");
-
-					    	PRINTF("Get the number of samples in the FIFO\r\n");
-					    	 uint8_t data002[5];
-					    			i2c_read_bytes(I2C_MAX32664_SLAVE_ADDRESS,READ_OUTPUT_FIFO,0x00,0x00,data002,3);
-					    			PRINTF("Status Byte: 0x%x\r\n", data002[0]);
-					    						    		if(data002[0] == 0x00){
-					    						    		    PRINTF("No error\r\n");
-					    						    		 }else {
-					    						    		    	PRINTF("Error\r\n");
-					    						    		  }
-					    						    	PRINTF("Response: 0x%x, 0x%x\r\n",data002[0], data002[1]);
-					    						    	PRINTF("\r\n\r\n");
-
-		PRINTF("Read the data stored in the FIFO\r\n");
-		uint8_t data003[255];
-		i2c_read_bytes(I2C_MAX32664_SLAVE_ADDRESS,READ_OUTPUT_FIFO,0x01,0x00,data003,255);
-		PRINTF("Status Byte: 0x%x\r\n", data003[0]);
+	PRINTF("Read the sensor hub status\r\n");
+	uint8_t data001[5];
+	i2c_read_bytes(I2C_MAX32664_SLAVE_ADDRESS,READ_SENSOR_HUB_STATUS,0x00,0x00,data001,3);
+	PRINTF("Status Byte: 0x%x\r\n", data001[0]);
+		if(data001[0] == 0x00){
+			PRINTF("No error\r\n");
+		}else {
+					PRINTF("Error\r\n");
+		}
+	PRINTF("Response: 0x%x, 0x%x\r\n",data001[0], data001[1]);
+	PRINTF("\r\n\r\n");
+	PRINTF("Get the number of samples in the FIFO\r\n");
+	uint8_t data002[5];
+	i2c_read_bytes(I2C_MAX32664_SLAVE_ADDRESS,READ_OUTPUT_FIFO,0x00,0x00,data002,3);
+	PRINTF("Status Byte: 0x%x\r\n", data002[0]);
+		if(data002[0] == 0x00){
+			PRINTF("No error\r\n");
+		}else {
+					 PRINTF("Error\r\n");
+		}
+	PRINTF("Response: 0x%x, 0x%x\r\n",data002[0], data002[1]);
+	PRINTF("\r\n\r\n");
+	PRINTF("Read the data stored in the FIFO\r\n");
+	uint8_t data003[255];
+	i2c_read_bytes(I2C_MAX32664_SLAVE_ADDRESS,READ_OUTPUT_FIFO,0x01,0x00,data003,255);
+	PRINTF("Status Byte: 0x%x\r\n", data003[0]);
 		if(data003[0] == 0x00){
-		PRINTF("No error\r\n");
+	PRINTF("No error\r\n");
 		}else {
-		PRINTF("Error\r\n");
+			PRINTF("Error\r\n");
 		}
-		PRINTF("\r\n\r\n");
-		//PRINTF("MaximFast State Machine Status Codes:\r\n0: No object detected\r\n1: Object detected\r\n2: Object other than finger detected\r\n3: Finger detected\r\n 0x%x\r\n", data003[37]);
-				if (data003[37] == 0x00){
-					PRINTF("No Object Detected\r\n");
-				}else if(data003[37] == 0x01){
-					PRINTF("Object Detected\r\n");
-				}else if(data003[37] == 0x02){
-					PRINTF("Object other than finger detected\r\n");
-				}else if(data003[37] == 0x03){
-					PRINTF("Finger Detected\r\n");
+					PRINTF("\r\n\r\n");
+	//PRINTF("MaximFast State Machine Status Codes:\r\n0: No object detected\r\n1: Object detected\r\n2: Object other than finger detected\r\n3: Finger detected\r\n 0x%x\r\n", data003[37]);
+		if (data003[37] == 0x00){
+			PRINTF("No Object Detected\r\n");
+		}else if(data003[37] == 0x01){
+			PRINTF("Object Detected\r\n");
+		}else if(data003[37] == 0x02){
+			PRINTF("Object other than finger detected\r\n");
+		}else if(data003[37] == 0x03){
+			PRINTF("Finger Detected\r\n");
 				}
-		PRINTF("Patient Results:\r\n");
-		//("IR COUNTS: 0x%x, 0x%x, 0x%x\r\n", data003[1],data003[2],data003[3]);
-		//PRINTF("RED COUNTS: 0x%x, 0x%x, 0x%x\r\n", data003[4],data003[5],data003[6]);
-		//PRINTF("LED3 COUNTS: 0x%x, 0x%x, 0x%x\r\n", data003[7],data003[8],data003[9]);
-		//PRINTF("LED4 COUNTS: 0x%x, 0x%x, 0x%x\r\n", data003[10],data003[11],data003[12]);
-		//PRINTF("X accelerometer: 0x%x, 0x%x\r\n", data003[13],data003[14]);
-		//PRINTF("Y accelerometer: 0x%x, 0x%x\r\n", data003[15],data003[16]);
-		//PRINTF("Z accelerometer: 0x%x, 0x%x\r\n", data003[17],data003[18]);
-		//PRINTF("Heart Rate: 0x%x, 0x%x\r\n", data003[19],data003[20]);
-		uint16_t num = ((data003[19] << 8) + data003[20]);
-		float hrVal= num/10;
-		PRINTF("Heart Rate:%.f\ Bpm\r\n", hrVal);
-		UART0_Transmit_Poll(0xFE);  //clear LCD
-		UART0_Transmit_Poll(0x01);  //clear LCD
-		delay(1000);
-		//int i = 1983;
-		//uint8_t  data501[20];
-		//sprintf(data001, "%d", i);
-		char str_ivan1[10]= "HR:";
-		//uint8_t  data001[20];
-		//sprintf(data001, "%c", i);
-		UART0_Transmit_Poll(str_ivan1[0]);
-		UART0_Transmit_Poll(str_ivan1[1]);
-		UART0_Transmit_Poll(str_ivan1[2]);
-
-		//int i = 1983;
-		uint8_t  data501[20];
-		sprintf(data501, "%.1f", hrVal);
-		UART0_Transmit_Poll(data501[0]);
-		UART0_Transmit_Poll(data501[1]);
-		UART0_Transmit_Poll(data501[2]);
-		UART0_Transmit_Poll(data501[3]);
-		UART0_Transmit_Poll(' ');
-		UART0_Transmit_Poll('b');
-		UART0_Transmit_Poll('p');
-		UART0_Transmit_Poll('m');
-		UART0_Transmit_Poll(' ');
-		UART0_Transmit_Poll(' ');
-		UART0_Transmit_Poll(' ');
-		UART0_Transmit_Poll(' ');
-		UART0_Transmit_Poll(' ');
-
-		//PRINTF("Confidence Level: 0x%x\r\n", data003[21]);
-		float confidencePer = (data003[21])*0.39215;
-		PRINTF("Confidence Level Decimal: %.f\ %%\r\n", confidencePer);
-		//PRINTF("SpO2 value (0-100%): 0x%x, 0x%x\r\n", data003[22],data003[23]);
-		uint16_t num2 = ((data003[22] << 8) + data003[23]);
-		float hrVal1= num2/10;
-		PRINTF("SpO2 value (0-100%):%.f\ %%\r\n", hrVal1);
-		char str_ivan2[10]= "SpO2:";
-			//uint8_t  data001[20];
-			//sprintf(data001, "%c", i);
-			UART0_Transmit_Poll(str_ivan2[0]);
-			UART0_Transmit_Poll(str_ivan2[1]);
-			UART0_Transmit_Poll(str_ivan2[2]);
-			UART0_Transmit_Poll(str_ivan2[3]);
-			UART0_Transmit_Poll(str_ivan2[4]);
-
-			//int i = 1983;
-			uint8_t  data502[20];
-			sprintf(data502, "%.1f", hrVal1);
-			UART0_Transmit_Poll(data502[0]);
-			UART0_Transmit_Poll(data502[1]);
-			UART0_Transmit_Poll(data502[2]);
-			UART0_Transmit_Poll(data502[3]);
-			UART0_Transmit_Poll('%');
-		/*
-		PRINTF("0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x\r\n", data003[1],data003[2],data003[3],data003[4],data003[5],data003[6],data003[7],data003[8],data003[9]);
-		PRINTF("0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x\r\n", data003[10],data003[11],data003[12],data003[13],data003[14],data003[15],data003[16],data003[17],data003[18]);
-		*/
-		PRINTF("\r\n\r\n");
-	    	    	    	    PRINTF("\r\n\r\n");
-	    PRINTF("End of Code here\r\n\r\n");
+	PRINTF("Patient Results:\r\n");
+	//("IR COUNTS: 0x%x, 0x%x, 0x%x\r\n", data003[1],data003[2],data003[3]);
+	//PRINTF("RED COUNTS: 0x%x, 0x%x, 0x%x\r\n", data003[4],data003[5],data003[6]);
+	//PRINTF("LED3 COUNTS: 0x%x, 0x%x, 0x%x\r\n", data003[7],data003[8],data003[9]);
+	//PRINTF("LED4 COUNTS: 0x%x, 0x%x, 0x%x\r\n", data003[10],data003[11],data003[12]);
+	//PRINTF("X accelerometer: 0x%x, 0x%x\r\n", data003[13],data003[14]);
+	//PRINTF("Y accelerometer: 0x%x, 0x%x\r\n", data003[15],data003[16]);
+	//PRINTF("Z accelerometer: 0x%x, 0x%x\r\n", data003[17],data003[18]);
+	//PRINTF("Heart Rate: 0x%x, 0x%x\r\n", data003[19],data003[20]);
+	uint16_t num = ((data003[19] << 8) + data003[20]);
+	float hrVal= num/10;
+	PRINTF("Heart Rate:%.f\ Bpm\r\n", hrVal);
+	UART0_Transmit_Poll(0xFE);  		//clear LCD
+	UART0_Transmit_Poll(0x01);  		//clear LCD
+	delay(1000);
+	char str_ivan1[10]= "HR:";
+	UART0_Transmit_Poll(str_ivan1[0]);
+	UART0_Transmit_Poll(str_ivan1[1]);
+	UART0_Transmit_Poll(str_ivan1[2]);
+	uint8_t  data501[20];
+	sprintf(data501, "%.1f", hrVal);
+	UART0_Transmit_Poll(data501[0]);
+	UART0_Transmit_Poll(data501[1]);
+	UART0_Transmit_Poll(data501[2]);
+	UART0_Transmit_Poll(data501[3]);
+	UART0_Transmit_Poll(' ');
+	UART0_Transmit_Poll('b');
+	UART0_Transmit_Poll('p');
+	UART0_Transmit_Poll('m');
+	UART0_Transmit_Poll(' ');
+	UART0_Transmit_Poll(' ');
+	UART0_Transmit_Poll(' ');
+	UART0_Transmit_Poll(' ');
+	UART0_Transmit_Poll(' ');
+	//PRINTF("Confidence Level: 0x%x\r\n", data003[21]);
+	float confidencePer = (data003[21])*0.39215;
+	PRINTF("Confidence Level Decimal: %.f\ %%\r\n", confidencePer);
+	//PRINTF("SpO2 value (0-100%): 0x%x, 0x%x\r\n", data003[22],data003[23]);
+	uint16_t num2 = ((data003[22] << 8) + data003[23]);
+	float hrVal1= num2/10;
+	PRINTF("SpO2 value (0-100%):%.f\ %%\r\n", hrVal1);
+	char str_ivan2[10]= "SpO2:";
+	UART0_Transmit_Poll(str_ivan2[0]);
+	UART0_Transmit_Poll(str_ivan2[1]);
+	UART0_Transmit_Poll(str_ivan2[2]);
+	UART0_Transmit_Poll(str_ivan2[3]);
+	UART0_Transmit_Poll(str_ivan2[4]);
+	uint8_t  data502[20];
+	sprintf(data502, "%.1f", hrVal1);
+	UART0_Transmit_Poll(data502[0]);
+	UART0_Transmit_Poll(data502[1]);
+	UART0_Transmit_Poll(data502[2]);
+	UART0_Transmit_Poll(data502[3]);
+	UART0_Transmit_Poll('%');
+	PRINTF("\r\n\r\n");
+	PRINTF("\r\n\r\n");
+	PRINTF("End of Code here\r\n\r\n");
 	while(1){
 		;
 			}
 }
-
-© 2020 GitHub, Inc.
-Terms
-Privacy
-Security
-Status
-Help
-Contact GitHub
-Pricing
-API
-Training
-Blog
-About
